@@ -3,28 +3,30 @@ import numpy as np
 import pathlib
 
 import tensorflow as tf
+
+# tf.config.set_visible_devices([], 'GPU')
 #path to the file is an object to the file dataset.txt which is a tab separated collection of data
 
-path_to_file = pathlib.Path("dataset.txt")
+path_to_file = pathlib.Path("datasetCreation\dataset.txt")
 
 def load_data(path):
     text = path.read_text(encoding = "utf-8")
     lines = text.splitlines()
-    triplets = [line.strip().split("\t") for line in lines]
-    context = np.array([context.strip("\"") for id, target, context in triplets])
-    target = np.array([target.strip("\"") for id, target, context in triplets])
+    pairs = [line.strip().split("\t") for line in lines]
+    context = np.array([context.strip("\"") for context, target in pairs])
+    target = np.array([target.strip("\"") for context, target in pairs])
 
     
     return target, context
 
 target_raw, context_raw = load_data(path_to_file)
 
-
 #we will create a tf.data.Dataset of string from the array of strings that is context and target
 #this will help us in shufling the data and distribute them in batches effectively
 
 #we will also split our dataset into training and validation dataset
 
+print(target_raw)
 
 BUFFER_SIZE = len(context_raw)
 BATCH_SIZE = 64 #can use 32 too
@@ -50,9 +52,8 @@ val_raw = (
     .shuffle(BUFFER_SIZE)
     .batch(BATCH_SIZE))
 
-
-for example_context_strings, example_target_strings in train_raw.take(1):
-  print(example_context_strings[:5])
-  print()
-  print(example_target_strings[:5])
-  break
+# for example_context_strings, example_target_strings in train_raw.take(1):
+#   print(example_context_strings[:5])
+#   print()
+#   print(example_target_strings[:5])
+#   break
