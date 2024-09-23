@@ -76,12 +76,3 @@ for (ex_context_tok, ex_tar_in), ex_tar_out in train_ds.take(1):
     print(ex_tar_in[0, :10].numpy()) 
     print(ex_tar_out[0, :10].numpy())
 
-  
-
-
-
-
-
-
-
-

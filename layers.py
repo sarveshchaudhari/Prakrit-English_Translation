@@ -157,7 +157,7 @@ class Decoder(tf.keras.layers.Layer):
 
         self.text_processor = text_processor#responsible for converting raw text to tokens
         
-        self.vocab_size = text_processor.vocab_size()
+        self.vocab_size = text_processor.vocabulary_size()
 
         self.word_to_id = tf.keras.layers.StringLookup( #creates a stringLookup layer to map words to their corresponding token IDs
             vocabulary = text_processor.get_vocabulary(),
@@ -192,3 +192,71 @@ class Decoder(tf.keras.layers.Layer):
         
         self.output_layer = tf.keras.layers.Dense(self.vocab_size)#takes the putput fomr the previous layer (here GRU) and transforms it into a logits vector that corresponds to the vocabulary size each element in this logits vector represents the raw prediction score for each word in the vocabulary
         
+
+#Training the dataset
+@Decoder.add_method
+def call(self, context, x, state = None, return_state=False):#method in tensorflow keras that defines how the input passes throught the layer forward pass, context is the output from the encoder which holdds the context (or information) extracted from the input sequence, x is the target sequence input for training this is the ground truth target tokens shifted by one, state is the previous state of the decoder's RNN this is optional and passed in during inference to continue the generation process, return_state if True the RNN's internal state is returned along with the output, this is useful for inference where you want to generate tokens one by one
+    shape_checker = ShapeChecker()
+    shape_checker(x, 'batch t') #the t is the length of the target sequence
+    shape_checker(context, 'batch s units') #here s is the length of input sequence units is the size of encoder's hidden state
+    
+
+    #convert the input to the decoder which is token ids into embedding vectors
+    x = self.embedding(x)#the firststep is to convert the token IDs into embedding vectors
+    shape_checker(x, 'batch t units') 
+
+
+    #RNN processing 
+    x, state = self.rnn(x, initial_state = state) #x is the output for each RNN for every timestep(token) in the sequence, state is the final hidden state of the RNN, which can be passes back during the next call to continue the sequence
+    shape_checker(x, 'batch t units')
+
+    #applying attention Attention allows the decoder to selectively focus on different parts of the input sequence for each token it generates, rather than relying on a fixed-length context vector. This helps the model handle long sequences more effectively.
+    x = self.attention(x, context) #the attention layer has two input x this is the query or RNN ouput which represenets the current state of the decoder, context is the key value pair which represent the encoder's output
+    #the attention mechanism computes the weighted avereage of the encoder's output on how relevant each part of the context is to decoder's current state this gives the decoder access to the entire input sequenc with more emphaisis on relevant pairs
+    self.last_attention_weights = self.attention.last_attention_weights#returns attention weights that represent the importance of each imput token (from the encoder) to each ouput token(in the target sequence)
+    shape_checker(x, 'batch t units')
+    shape_checker(self.last_attention_weights, 'batch t s')
+
+    #Logit predictions (logits are he unnormalized raw output scores of neural network before activation function like softmax or sigmoid is applied to convert them into probabilitites)
+    logits = self.output_layer(x)
+    shape_checker(logits, 'batch t target_vocab_size')#the target_vocab_size is the number of possible tokens in the target language
+
+
+    if return_state:
+        return logits, state
+    
+    else:
+        return logits
+    
+    #if return_state is set to true the method returns both the predicted logits and the RNN's final state
+    #if false (default) then only logits are returned
+
+
+
+#Test The decoder
+decoder = Decoder(target_text_processor, UNITS)
+
+#The Decoder predicts the next token in the target sequence, given the context from the encoder and the target input tokens up to that point. During training, it works by taking the correct previous tokens (ex_tar_in) and predicting the next token (logits).
+logits = decoder(ex_context, ex_tar_in)
+
+# print(f'encoder output shape: (batch, s, units) {ex_context.shape}')
+# print(f'input target tokens shape: (batch, t) {ex_tar_in.shape}')
+# print(f'logits shape shape: (batch, target_vocabulary_size) {logits.shape}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
